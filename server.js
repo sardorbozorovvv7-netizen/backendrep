@@ -30,11 +30,9 @@ const apiRouter = require('./routes/api');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Allow all origins - needed for mobile browsers and various frontend deployments
 app.use(cors({
-  origin: [
-    'https://agent-6a4505bde11dac--illustrious-hamster-fad0c2.netlify.app', 
-    'http://localhost:5173'
-  ],
+  origin: true,
   credentials: true
 }));
 app.use(express.json());
@@ -75,3 +73,16 @@ const startServer = async () => {
 };
 
 startServer();
+
+// Keep Render.com free tier alive by pinging every 14 minutes
+if (process.env.NODE_ENV !== 'test') {
+  const BACKEND_URL = 'https://backendrep-9gdr.onrender.com/api/products';
+  setInterval(async () => {
+    try {
+      const res = await fetch(BACKEND_URL);
+      console.log(`[Keep-alive] Ping ${res.status} - ${new Date().toISOString()}`);
+    } catch (e) {
+      console.warn('[Keep-alive] Ping failed:', e.message);
+    }
+  }, 14 * 60 * 1000); // every 14 minutes
+}
