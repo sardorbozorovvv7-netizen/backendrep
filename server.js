@@ -13,7 +13,7 @@ try {
       if (parts.length >= 2) {
         const key = parts[0].trim();
         const value = parts.slice(1).join('=').trim();
-        if (key && !key.startsWith('#')) {
+        if (key && !key.startsWith('#') && process.env[key] === undefined) {
           process.env[key] = value;
         }
       }
@@ -28,7 +28,9 @@ const seedDatabase = require('./seed');
 const apiRouter = require('./routes/api');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const DEFAULT_PORT = 10000;
+const ENV_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : undefined;
+const PORT = Number.isNaN(ENV_PORT) ? DEFAULT_PORT : ENV_PORT || DEFAULT_PORT;
 
 // Allow all origins - needed for mobile browsers and various frontend deployments
 app.use(cors({
@@ -61,7 +63,7 @@ const startServer = async () => {
 
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
-        console.error(`Port ${PORT} is already in use. Stop the process using that port or set a different PORT in your .env file.`);
+        console.error(`Port ${PORT} is already in use. On Render, remove any hardcoded PORT value from .env or use process.env.PORT.`);
         process.exit(1);
       }
       console.error('Server error:', err);
@@ -69,6 +71,7 @@ const startServer = async () => {
     });
   } catch (error) {
     console.error('Unable to connect to the database:', error);
+    process.exit(1);
   }
 };
 
@@ -76,13 +79,13 @@ startServer();
 
 // Keep Render.com free tier alive by pinging every 14 minutes
 if (process.env.NODE_ENV !== 'test') {
-  const BACKEND_URL = 'https://backendrep-9gdr.onrender.com/api/products';
+  const BACKEND_URL = process.env.BACKEND_URL || 'https://backendrep-9gdr.onrender.com/api/products';
   setInterval(async () => {
     try {
       const res = await fetch(BACKEND_URL);
       console.log(`[Keep-alive] Ping ${res.status} - ${new Date().toISOString()}`);
     } catch (e) {
-      console.warn('[Keep-alive] Ping failed:', e.message);
+      console.warn('[Keep-alive] Ping failed:', e.message || e);
     }
   }, 14 * 60 * 1000); // every 14 minutes
 }

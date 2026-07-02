@@ -2,7 +2,7 @@
 // Render free tier shuts down after 15 min inactivity
 // This pings the backend every 14 minutes to keep it alive
 
-const BACKEND_URL = 'https://backendrep-9gdr.onrender.com/api/products';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://backendrep-9gdr.onrender.com/api/products';
 const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes in milliseconds
 
 const pingBackend = async () => {
