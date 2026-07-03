@@ -50,5 +50,6 @@ router.delete('/cart/:id', shopController.removeFromCart);
 // ==========================================
 router.get('/orders', shopController.getOrders);
 router.post('/orders/checkout', shopController.checkout);
+router.post('/orders/guest-checkout', shopController.guestCheckout);
 
 module.exports = router;

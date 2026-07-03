@@ -478,6 +478,90 @@ const checkout = async (req, res) => {
   }
 };
 
+// ==========================================
+// GUEST CHECKOUT (no login required)
+// ==========================================
+
+const guestCheckout = async (req, res) => {
+  try {
+    const { name, surname, phone, cartItems } = req.body;
+
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'Ism va telefon raqami kiritilishi shart!' });
+    }
+
+    if (!cartItems || cartItems.length === 0) {
+      return res.status(400).json({ error: 'Savat bo\'sh!' });
+    }
+
+    // Find or create guest user
+    const email = `${phone}@shop.uz`;
+    const fullName = `${name} ${surname || ''}`.trim();
+
+    let user = await User.findOne({ where: { phone } });
+    if (!user) {
+      user = await User.create({
+        name: fullName,
+        email,
+        phone,
+        likesHistory: '',
+        OrderHistory: '',
+        cartHistory: '',
+      });
+    }
+
+    const nowStr = new Date().toISOString();
+    const createdOrders = [];
+    let productDetailsList = [];
+    let totalPrice = 0;
+
+    for (const item of cartItems) {
+      const product = await Product.findByPk(parseInt(item.ProductId, 10));
+      if (!product) continue;
+
+      let stock = parseInt(product.quantity || 0, 10);
+      let orderQty = parseInt(item.quantity || 1, 10);
+      let newStock = Math.max(0, stock - orderQty);
+      await product.update({ quantity: newStock.toString() });
+
+      const itemPrice = parseFloat(product.saleprice || product.price || 0);
+      totalPrice += itemPrice * orderQty;
+
+      productDetailsList.push(`• <b>${product.name}</b> (${orderQty} ta x $${itemPrice})`);
+
+      const order = await HistoryModel.create({
+        ProductId: item.ProductId.toString(),
+        UserId: user.id,
+        quantity: orderQty,
+        history: JSON.stringify({
+          pricePaid: (product.saleprice || product.price).toString(),
+          productName: product.name,
+          status: 'Completed',
+          guestName: fullName,
+          guestPhone: phone,
+        }),
+        createdAt: nowStr,
+        updatedAt: nowStr,
+      });
+
+      createdOrders.push(order);
+    }
+
+    // Send Telegram notification
+    const orderMsg = `🛍️ <b>Yangi zakaz! (Mehmon)</b>\n\n` +
+                     `<b>Ism:</b> ${fullName}\n` +
+                     `<b>Telefon raqami:</b> ${phone}\n\n` +
+                     `<b>Mahsulotlar:</b>\n${productDetailsList.join('\n')}\n\n` +
+                     `<b>Jami summa:</b> $${totalPrice.toFixed(2)}`;
+    
+    await sendTelegramMessage(orderMsg);
+
+    res.status(201).json({ message: 'Guest checkout successful', orders: createdOrders });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   currentAuth,
   registerUser,
@@ -501,5 +585,6 @@ module.exports = {
   removeFromCart,
   getOrders,
   checkout,
+  guestCheckout,
   getActiveRole // Export just in case
 };
